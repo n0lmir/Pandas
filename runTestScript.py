@@ -29,9 +29,31 @@ np = [
 wds=pd.DataFrame(np)
 wds
 
-def calculate_gap1st(teva_price,winning_price):
+
+def encode_values(wds): 
+    object_df=wds.select_dtypes(exclude=['number'])  #filer the non-numeric cols (we don't want to encode them)
+    filtered_df=object_df.drop(['bid_id'], axis=1) #dropping bid_id, it must not be encrpyed (add other colums too, if needed)
+    cols=filtered_df.columns.tolist() #get all column names
+    encodingDict={}
+    
+    for col in cols:
+        my_df=pd.DataFrame()
+        rows=wds[col].unique()
+        my_df[col]=rows
+        my_df['value']=my_df.index # adding index Column as value
+        my_df.set_index(col,inplace=True)
+        encodingDict.update(my_df.to_dict())
+             
+    df_encodingDict = pd.DataFrame.from_dict(encodingDict, orient ='index')  #create df from dict
+    df_encodingDict=df_encodingDict.transpose() #flip cols/rows
+    df_encodingDict.to_csv(r'encodingDict(forReference).csv') # create a csv (for reference)
+    
+    return encodingDict  
+
+
+def calculate_gap1st(moba_price,winning_price):
     #Gordon's formula is: Percentage Increase = |MobaPrice - WinPrice| / |MobaPrice|
-    g1s=((teva_price-winning_price)/teva_price)*100
+    g1s=round(((moba_price-winning_price)/moba_price)*100,0)
     return g1s
 
 
@@ -43,8 +65,10 @@ def calculate_gap2nd(second_price, lowest_price):
         return 0
 
 wds.loc[(wds['Estado']=='Adjudicada')& (wds['Proveedor_Asociado']=='Moba'), 'MobaWins'] = 1
+wds.loc[(wds['Estado']=='No Adjudicada')& (wds['Proveedor_Asociado']=='Moba'), 'MobaWins'] = 0
 
-wds=wds.loc[wds['bid_id']=="2019/111051765-53-LE192"]
+
+#wds=wds.loc[wds['bid_id']=="2019/111051765-53-LE192"]
 
 ids_list2= wds.bid_id.unique()
 
@@ -100,5 +124,19 @@ for bid in ids_list2:
         
                  
 print(time.process_time() - start)
-# wds=wds.fillna(0)
-wds
+wds.fillna(0, inplace=True)
+
+
+
+# options = ['2019/111058088-25-LE1914', '2018/041155-9-LE187'] 
+  
+# # selecting rows based on condition 
+# wds.loc[wds['bid_id'].isin(options)] 
+
+
+## MappingTable in case we need to do it from external CSV 
+# mappingTable = pd.read_csv("mappignTable.csv", delimiter=';', engine='python')
+# #mappingTable.rename(columns = {'Proveedor_Asociado':'TEST'}, inplace = True) 
+# mappingTable
+
+encodingDict=encode_values(wds)
