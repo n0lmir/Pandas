@@ -34,21 +34,32 @@ def encode_values(wds):
     object_df=wds.select_dtypes(exclude=['number'])  #filer the non-numeric cols (we don't want to encode them)
     filtered_df=object_df.drop(['bid_id'], axis=1) #dropping bid_id, it must not be encrpyed (add other colums too, if needed)
     cols=filtered_df.columns.tolist() #get all column names
-    encodingDict={}
-    
+    new_dict={}
+  
     for col in cols:
         my_df=pd.DataFrame()
         rows=wds[col].unique()
         my_df[col]=rows
-        my_df['value']=my_df.index # adding index Column as value
-        my_df.set_index(col,inplace=True)
-        encodingDict.update(my_df.to_dict())
-             
-    df_encodingDict = pd.DataFrame.from_dict(encodingDict, orient ='index')  #create df from dict
+        new_dict.update(my_df.to_dict())
+           
+    df_encodingDict = pd.DataFrame.from_dict(new_dict, orient ='index')  #create df from dict
     df_encodingDict=df_encodingDict.transpose() #flip cols/rows
     df_encodingDict.to_csv(r'encodingDict(forReference).csv') # create a csv (for reference)
     
-    return encodingDict  
+    #order key/value in a proper way
+    encodedDict = {key:{v:k for k,v in value.items()} for key, value in new_dict.items()}
+    
+    myNewDict=encodedDict.get('Proveedor_Asociado',{})
+    wds.replace({"Proveedor_Asociado": myNewDict}, inplace=True) 
+    
+
+    for col in cols: 
+        myNewDict=encodedDict.get(col,{})
+        wds.replace({col: myNewDict}, inplace=True) 
+            
+    return wds
+  
+
 
 
 def calculate_gap1st(moba_price,winning_price):
@@ -89,7 +100,7 @@ for bid in ids_list2:
    
     if (any_winner):
         #add a column for the winning price
-        win_wds=temp_wds[(temp_wds['bid_id']==bid) & (wds['Estado'] == "Adjudicada")]
+        win_wds=temp_wds.loc[(temp_wds['bid_id']==bid) & (wds['Estado'] == "Adjudicada")]
         winning_price= win_wds['Promedio'].drop_duplicates().nsmallest(1).iloc[-1]    
         wds.loc[wds['bid_id'] == bid, 'Winning_price'] = winning_price
         
@@ -139,4 +150,6 @@ wds.fillna(0, inplace=True)
 # #mappingTable.rename(columns = {'Proveedor_Asociado':'TEST'}, inplace = True) 
 # mappingTable
 
-encodingDict=encode_values(wds)
+
+wds = encode_values(wds)
+wds
